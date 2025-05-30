@@ -114,4 +114,3 @@ plt.show()
 # axes.plot(A.T[1], A.T[0], A.T[2], label = "A") #rotated
 # axes.legend()
 # plt.show()
-

@@ -1,9 +1,8 @@
-from my_functions import align_cca
+from my_functions import CCA
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 from sklearn.decomposition import PCA
-from sklearn.cross_decomposition import CCA
 import seaborn as sns
 
 # HEATMAP 
@@ -11,41 +10,36 @@ import seaborn as sns
 trial_lengths = [100, 200, 300, 400, 500, 600, 700]
 neurons = [20, 120, 220, 320, 420]
 mean_cc = np.zeros((len(trial_lengths), len(neurons)))
+firing_rate = 10 #average neurons fire at 10hz for moderate activity
+dt = 0.001 # divide time (seconds) into bins
+
+pspike = firing_rate * dt # probability that there is a spike in the time bin
 
 for i, t_len in enumerate(trial_lengths):
     for j, neu in enumerate(neurons):
         reps = []
         for rep in range(10): # repeat 10 times to average
             #stimulate data
-            X = np.random.randn(t_len, neu)
-            Y = np.random.randn(t_len, neu)
+            X = (np.random.randn(t_len, neu) < pspike).astype(float)
+            Y = (np.random.randn(t_len, neu) < pspike).astype(float)
+            #gaussian filter to smooth
+            Xsm = gaussian_filter1d(X, sigma = 10, axis = 0)
+            Ysm = gaussian_filter1d(Y, sigma = 10, axis = 0)
             #pca
-            Xp = PCA(n_components=3).fit_transform(X)
-            Yp = PCA(n_components=3).fit_transform(Y)
+            Xp = PCA(n_components=3).fit_transform(Xsm)
+            Yp = PCA(n_components=3).fit_transform(Ysm)
             #align Xp and Yp -> CCA
-            X_c, Y_c, __ = align_cca(Xp, Yp)
+            S, aligne = CCA(Xp, Yp, align='B2A')
             #corelation coefficients
-            r_vals = [np.corrcoef((X_c[:, k], Y_c[:, k]))[0, 1] for k in range(3)]
-            reps.append(np.mean(r_vals)) #appends 10 cc at end of loop
+            reps.append(np.mean(S[:3]))
         mean_cc[i, j] = np.mean(reps) #avg of the cc after 10 reps
 
-# plt.imshow(mean_cc, origin = 'upper', aspect = 'equal', extent=[min(neurons), max(neurons), max(trial_lengths), min(trial_lengths)])
-# plt.colorbar(label = "Mean CC [0, 1]")
-# # for i in range(len(neurons)): # why no display CC within box
-# #     for j in range(len(trial_lengths)):
-# #         value = mean_cc[i, j]
-# #         plt.text(j, i, f"{value:.2f}")
-# plt.title('Aligning Two Random Spikes')
-# plt.xlabel('# Neurons')
-# plt.ylabel('Trial Length (ms)')
-# plt.gca().set_aspect('equal') #how to make square???? and how to center tick marks???
-# plt.show()
-
 #using seaborn
-sns.heatmap(mean_cc, annot = True, cmap = 'viridis', xticklabels=list(neurons), yticklabels=list(trial_lengths))
-plt.title('Aligning Two Random Spikes')
-plt.xlabel('# Neurons')
-plt.ylabel('Trial Length (ms)')
+plt.figure(figsize = (6, 6))
+ax = sns.heatmap(mean_cc, annot = True, cmap = 'viridis', xticklabels=list(neurons), yticklabels=list(trial_lengths), cbar_kws={"label": "Mean CC"})
+ax.set_title('Aligning Two Random Spikes')
+ax.set_xlabel('# Neurons')
+ax.set_ylabel('Trial Length (ms)')
 plt.show()
 
 #graph is weird. mean CC way too low -> prob because fake data. Graph is shorta inverted -> maybe because I messed up extent and origin?
@@ -55,6 +49,7 @@ plt.show()
 
 pcs = [5, 10, 15, 20, 25]
 sigmas = [5, 20, 35]
+threshold = 0.9995 # can I fix it so that mean CC isn't ungodly high
 
 coordinate = {} #{sigma: {"pcs": [], "trial lengths": []}}
 for sigma in sigmas:
@@ -76,19 +71,20 @@ for sigma in sigmas:
             y_p = PCA(n_components=pc).fit_transform(y_sm)
 
             #CCA
-            X_c, Y_c, __ = align_cca(x_p, y_p, n_components=pc)
+            S, aligned = CCA(x_p, y_p, align='B2A')
 
             #find correlation coefficients
-            cc = np.corrcoef(X_c[:,0], Y_c[:,0])[0, 1]
+            cc = S[0]
 
-            if cc > 0.12: #using 0.1 for now
+            if cc > threshold:
                 coordinate[sigma]["pcs"].append(pc)
                 coordinate[sigma]["trial lengths"].append(t_len)
 
-#make sure each sigma has cc > 0.12
+#make sure each sigma has cc > 0.threshold
 for sigma in sigmas:
-    count = len(coordinate[sigma]["pcs"])
-    print(f"σ = {sigma} → collected {count} points that pass CC > {0.1}") 
+    xs = coordinate[sigma]['pcs']
+    ys = coordinate[sigma]['trial lengths']
+    print(f"σ={sigma} → {len(xs)} points; unique PCs = {sorted(set(xs))}")
 
 print(coordinate)
 
@@ -112,11 +108,11 @@ for sigma in sigmas:
 
     plt.plot(x_line, y_line, label = f"σ={sigma}")
 
-plt.title("Experiments with mean CC > 0.1")
+plt.title("Experiments with mean CC > 0.9995")
 plt.xlabel("# PCs")
 plt.ylabel("Trial Lengths (ms)")
 plt.legend()
 plt.tight_layout()
 plt.show()
 
-#why weird graph? why only sigma 35 showing -> is everything overlapping?
+# still really weird results with the graph

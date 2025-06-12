@@ -81,7 +81,7 @@ for data in datasets:
     correlation_coefficients.append(np.mean(S[:3]))
 
 
-#graphing
+#graphing -- objected based graphing code from chatgpt
 
 fig, axes = plt.subplots(
     nrows=2,
@@ -90,19 +90,19 @@ fig, axes = plt.subplots(
     subplot_kw={'projection': '3d'}
 )
 
-# Top‐left: original A (bas
+# top‐left: original A (bas
 axes[0, 0].plot(A[:, 1], A[:, 0], A[:, 2], color='tab:green', lw=2)
 axes[0, 0].set_title("A (base)")
 axes[0, 0].set_zlim(0, 1)
  
-# Top‐row raw transformations (columns 1..4 in the top row)
+# top‐row raw transformations (columns 1..4 in the top row)
 for idx, (raw, lbl) in enumerate(zip(datasets, labels)):
     ax = axes[0, idx+1]
     ax.plot(raw[:, 1], raw[:, 0], raw[:, 2], color='darkgray', lw=1)
     ax.set_title(lbl)
     ax.set_zlim(0, 1)
 
-# Bottom‐row aligned trajectories (columns 0..3 in the bottom row)
+# bottom‐row aligned trajectories (columns 0..3 in the bottom row)
 for idx, (Yc, lbl, cc) in enumerate(zip(aligned_cca, labels, correlation_coefficients)):
     ax = axes[1, idx]
     # plot original A’s canonical coords in green
@@ -113,7 +113,6 @@ for idx, (Yc, lbl, cc) in enumerate(zip(aligned_cca, labels, correlation_coeffic
     ax.set_zlim(0, 1)
     ax.legend(loc='upper right', fontsize=6)
 
-# The bottom‐row rightmost plot (2×5 grid) is unused, so we can turn it off:
 axes[1, 4].axis('off')
 
 fig.suptitle("Characteristics of CCA with Geometric Data", fontsize=16)
